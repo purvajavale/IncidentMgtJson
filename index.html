@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Incident Comm Wizard</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f0f2f5;
+    --card: #ffffff;
+    --header: #1a2a4a;
+    --accent: #1d6fd8;
+    --accent2: #f0a04b;
+    --crit: #d93025;
+    --warn: #f59e0b;
+    --ok: #16a34a;
+    --text: #1e293b;
+    --muted: #64748b;
+    --border: #d1dae6;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 32px 24px;
+    color: var(--text);
+  }
+
+  /* ── WIZARD CARD ── */
+  .wizard {
+    max-width: 720px;
+    margin: 0 auto;
+    background: var(--card);
+    border-radius: 12px;
+    box-shadow: 0 4px 24px rgba(0,0,0,.10);
+    overflow: hidden;
+  }
+
+  /* ── HEADER ── */
+  .wizard-header {
+    background: var(--header);
+    padding: 20px 28px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .wh-icon {
+    width: 42px; height: 42px;
+    border: 2px solid rgba(255,255,255,.25);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+  }
+  .wh-title { font-size: 18px; font-weight: 700; color: #fff; }
+  .wh-sub { font-size: 12px; color: rgba(255,255,255,.55); margin-top: 3px; font-weight: 300; }
+
+  /* ── STEP PROGRESS BAR ── */
+  .step-bar {
+    display: flex;
+    align-items: center;
+    padding: 18px 28px 0;
+    gap: 0;
+    position: relative;
+  }
+  .step-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    position: relative;
+  }
+  .step-item:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 15px; left: 50%; right: -50%;
+    height: 2px;
+    background: var(--border);
+    z-index: 0;
+    transition: background .4s;
+  }
+  .step-item.done:not(:last-child)::after { background: var(--accent); }
+  .step-circle {
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 2px solid var(--border);
+    background: var(--card);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: var(--muted);
+    z-index: 1; position: relative;
+    transition: all .3s;
+  }
+  .step-item.active .step-circle { border-color: var(--accent); background: var(--accent); color: #fff; }
+  .step-item.done .step-circle { border-color: var(--accent); background: var(--accent); color: #fff; }
+  .step-item.done .step-circle::after { content: '✓'; font-size: 13px; }
+  .step-item.done .step-circle span { display: none; }
+  .step-label {
+    font-size: 10px; font-family: var(--mono); color: var(--muted);
+    margin-top: 6px; text-align: center; letter-spacing: .3px;
+    white-space: nowrap;
+  }
+  .step-item.active .step-label { color: var(--accent); font-weight: 600; }
+  .step-item.done .step-label { color: var(--accent); }
+
+  /* ── BODY ── */
+  .wizard-body { padding: 28px 28px 24px; min-height: 320px; }
+  .step-panel { display: none; animation: fadeIn .25s ease; }
+  .step-panel.active { display: block; }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+  .step-heading { font-size: 22px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .step-desc { font-size: 13px; color: var(--muted); margin-bottom: 22px; line-height: 1.6; }
+
+  /* ── RADIO OPTIONS ── */
+  .radio-list { display: flex; flex-direction: column; gap: 10px; }
+  .radio-opt {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px; cursor: pointer;
+    transition: all .15s;
+  }
+  .radio-opt:hover { border-color: var(--accent); background: #f0f6ff; }
+  .radio-opt.selected { border-color: var(--accent); background: #eef4ff; }
+  .radio-dot {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid var(--border); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+  }
+  .radio-opt.selected .radio-dot { border-color: var(--accent); background: var(--accent); }
+  .radio-opt.selected .radio-dot::after { content: ''; width: 6px; height: 6px; background: #fff; border-radius: 50%; display: block; }
+  .radio-label { font-size: 14px; font-weight: 500; flex: 1; }
+  .radio-badge { font-family: var(--mono); font-size: 10px; padding: 2px 7px; border-radius: 2px; }
+
+  /* ── FORM FIELDS ── */
+  .field-group { margin-bottom: 18px; }
+  .field-label { font-size: 12px; font-weight: 600; color: var(--muted); letter-spacing: .5px; text-transform: uppercase; margin-bottom: 7px; display: block; }
+  .field-select, .field-input, .field-textarea {
+    width: 100%; padding: 10px 14px;
+    border: 1.5px solid var(--border); border-radius: 7px;
+    font-family: var(--sans); font-size: 13px; color: var(--text);
+    background: #f8fafc; outline: none;
+    transition: border-color .15s;
+  }
+  .field-select:focus, .field-input:focus, .field-textarea:focus { border-color: var(--accent); background: #fff; }
+  .field-textarea { resize: vertical; min-height: 80px; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .toggle-label { font-size: 13px; color: var(--text); }
+  .toggle-sub { font-size: 11px; color: var(--muted); }
+  .toggle {
+    width: 38px; height: 20px; background: var(--border); border-radius: 10px;
+    position: relative; cursor: pointer; transition: background .2s; flex-shrink: 0;
+  }
+  .toggle.on { background: var(--accent); }
+  .toggle::after {
+    content: ''; position: absolute; top: 2px; left: 2px;
+    width: 16px; height: 16px; background: #fff; border-radius: 50%;
+    transition: left .2s;
+  }
+  .toggle.on::after { left: 20px; }
+
+  /* ── TEAMS PULL PANEL ── */
+  .teams-pull {
+    background: #f0f4ff;
+    border: 1.5px solid #c7d7f8;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .teams-pull-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .t-logo { width: 28px; height: 28px; background: #6264a7; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff; }
+  .t-title { font-size: 13px; font-weight: 600; color: #1d3461; }
+  .t-sub { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+  .inc-pill {
+    display: flex; align-items: center; gap: 10px;
+    background: #fff; border: 1px solid #c7d7f8; border-radius: 6px;
+    padding: 10px 12px; margin-bottom: 8px; cursor: pointer;
+    transition: border-color .15s;
+  }
+  .inc-pill:hover { border-color: var(--accent); }
+  .inc-pill.selected { border-color: var(--accent); background: #eef4ff; }
+  .pill-id { font-family: var(--mono); font-size: 11px; color: var(--accent); font-weight: 600; width: 80px; }
+  .pill-title { flex: 1; font-size: 13px; font-weight: 500; }
+  .pill-sev { font-family: var(--mono); font-size: 10px; padding: 2px 7px; border-radius: 2px; font-weight: 600; }
+  .sev-p1 { background: rgba(217,48,37,.12); color: var(--crit); border: 1px solid rgba(217,48,37,.25); }
+  .sev-p2 { background: rgba(245,158,11,.12); color: var(--warn); border: 1px solid rgba(245,158,11,.25); }
+
+  /* ── DETAIL FETCH ── */
+  .detail-fetch {
+    background: #f8fafc; border: 1.5px solid var(--border); border-radius: 8px;
+    padding: 16px; margin-top: 14px;
+  }
+  .fetch-source-tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+  .fsrc-tab {
+    font-family: var(--mono); font-size: 11px; padding: 5px 12px;
+    border-radius: 4px; border: 1px solid var(--border);
+    background: transparent; color: var(--muted); cursor: pointer;
+    transition: all .15s;
+  }
+  .fsrc-tab.active { background: var(--header); border-color: var(--header); color: #fff; }
+  .detail-table { width: 100%; border-collapse: collapse; }
+  .detail-table td { padding: 6px 8px; font-size: 12px; border-bottom: 1px solid var(--border); }
+  .detail-table td:first-child { color: var(--muted); font-family: var(--mono); font-size: 11px; width: 38%; }
+  .detail-table td:last-child { font-weight: 500; }
+  .mini-bar-wrap { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 3px; }
+  .mini-bar { height: 100%; border-radius: 3px; }
+
+  /* ── AI GENERATING ── */
+  .ai-panel {
+    background: #f8fafc; border: 1.5px solid var(--border); border-radius: 8px; padding: 20px;
+    display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center;
+  }
+  .ai-spinner-ring {
+    width: 52px; height: 52px;
+    border: 3px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ai-status { font-size: 15px; font-weight: 600; color: var(--text); }
+  .ai-sub { font-size: 12px; color: var(--muted); }
+  .ai-steps { display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 380px; text-align: left; }
+  .ai-step { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); }
+  .ai-step.done { color: var(--ok); }
+  .ai-step.active { color: var(--accent); font-weight: 600; }
+  .ai-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
+  .ai-step.done .ai-dot { background: var(--ok); }
+  .ai-step.active .ai-dot { background: var(--accent); animation: blink .8s step-end infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* ── OUTPUT STEP ── */
+  .channel-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+  .ch-card {
+    border: 1.5px solid var(--border); border-radius: 8px; padding: 14px;
+    cursor: pointer; transition: all .15s;
+  }
+  .ch-card:hover { border-color: var(--accent); }
+  .ch-card.selected { border-color: var(--accent); background: #eef4ff; }
+  .ch-card-icon { font-size: 20px; margin-bottom: 6px; }
+  .ch-card-name { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+  .ch-card-desc { font-size: 11px; color: var(--muted); }
+  .preview-box {
+    background: #0a0e14; border-radius: 8px; padding: 16px;
+    font-family: var(--mono); font-size: 11px; color: #c8d8e8;
+    line-height: 1.8; max-height: 180px; overflow-y: auto;
+    white-space: pre-wrap; margin-bottom: 14px;
+  }
+
+  /* ── FOOTER ── */
+  .wizard-footer {
+    padding: 16px 28px 24px;
+    display: flex; justify-content: space-between; align-items: center;
+    border-top: 1px solid var(--border);
+  }
+  .btn {
+    font-family: var(--sans); font-size: 13px; font-weight: 600;
+    padding: 10px 24px; border-radius: 7px; cursor: pointer;
+    border: none; transition: all .15s;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #1558b0; }
+  .btn-secondary { background: transparent; border: 1.5px solid var(--border); color: var(--muted); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-success { background: var(--ok); color: #fff; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .step-counter { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div class="wizard">
+
+  <!-- HEADER -->
+  <div class="wizard-header">
+    <div class="wh-icon">🛡️</div>
+    <div>
+      <div class="wh-title">Incident Communication Wizard</div>
+      <div class="wh-sub">Guided workflow · ServiceNow + Databricks + Microsoft Teams</div>
+    </div>
+  </div>
+
+  <!-- STEP PROGRESS -->
+  <div class="step-bar" id="stepBar">
+    <div class="step-item active" id="si1">
+      <div class="step-circle"><span>1</span></div>
+      <div class="step-label">Select Goal</div>
+    </div>
+    <div class="step-item" id="si2">
+      <div class="step-circle"><span>2</span></div>
+      <div class="step-label">Pick Incident</div>
+    </div>
+    <div class="step-item" id="si3">
+      <div class="step-circle"><span>3</span></div>
+      <div class="step-label">Set Context</div>
+    </div>
+    <div class="step-item" id="si4">
+      <div class="step-circle"><span>4</span></div>
+      <div class="step-label">AI Insights</div>
+    </div>
+    <div class="step-item" id="si5">
+      <div class="step-circle"><span>5</span></div>
+      <div class="step-label">Send Comm</div>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div class="wizard-body">
+
+    <!-- STEP 1: SELECT GOAL -->
+    <div class="step-panel active" id="step1">
+      <div class="step-heading">What do you want help with?</div>
+      <div class="step-desc">Select the communication goal. AI will tailor insights and draft output based on this selection.</div>
+      <div class="radio-list">
+        <div class="radio-opt selected" onclick="selectGoal(this)">
+          <div class="radio-dot"></div>
+          <span class="radio-label">Incident Summary &amp; Timeline</span>
+          <span class="radio-badge sev-p1">EXEC</span>
+        </div>
+        <div class="radio-opt" onclick="selectGoal(this)">
+          <div class="radio-dot"></div>
+          <span class="radio-label">Root Cause Analysis</span>
+          <span class="radio-badge" style="background:#f0f4ff;color:#1d6fd8;border:1px solid #c7d7f8">TECH</span>
+        </div>
+        <div class="radio-opt" onclick="selectGoal(this)">
+          <div class="radio-dot"></div>
+          <span class="radio-label">Business Impact Report</span>
+          <span class="radio-badge sev-p2">BIZ</span>
+        </div>
+        <div class="radio-opt" onclick="selectGoal(this)">
+          <div class="radio-dot"></div>
+          <span class="radio-label">End of Day Summary</span>
+          <span class="radio-badge" style="background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0">EOD</span>
+        </div>
+        <div class="radio-opt" onclick="selectGoal(this)">
+          <div class="radio-dot"></div>
+          <span class="radio-label">Prior Day Report</span>
+          <span class="radio-badge" style="background:#f8fafc;color:#64748b;border:1px solid #d1dae6">RPT</span>
+        </div>
+        <div class="radio-opt" onclick="selectGoal(this)">
+          <div class="radio-dot"></div>
+          <span class="radio-label">Custom Question / Free-form</span>
+          <span class="radio-badge" style="background:#fdf4ff;color:#9333ea;border:1px solid #e9d5ff">AI</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 2: PICK INCIDENT (from Teams) -->
+    <div class="step-panel" id="step2">
+      <div class="step-heading">Pick an Incident</div>
+      <div class="step-desc">Active incidents are pulled daily from your Microsoft Teams channel. Select one to continue.</div>
+
+      <div class="teams-pull">
+        <div class="teams-pull-header">
+          <div class="t-logo">T</div>
+          <div>
+            <div class="t-title">Microsoft Teams · #cgx-incidents</div>
+            <div class="t-sub">Auto-synced daily · Last pull: 11:58 UTC today · 2 active</div>
+          </div>
+        </div>
+        <div class="inc-pill selected" onclick="selectPill(this, 'INC146426')">
+          <div class="pill-id">INC146426</div>
+          <div class="pill-title">CGX Services Down</div>
+          <div class="pill-sev sev-p1">P1</div>
+        </div>
+        <div class="inc-pill" onclick="selectPill(this, 'INC213423')">
+          <div class="pill-id">INC213423</div>
+          <div class="pill-title">CGX Apps Unavailable</div>
+          <div class="pill-sev sev-p2">P2</div>
+        </div>
+      </div>
+
+      <!-- Detail Fetch -->
+      <div class="detail-fetch">
+        <div class="fetch-source-tabs">
+          <button class="fsrc-tab active" onclick="switchFetch('snow', this)">🔧 ServiceNow</button>
+          <button class="fsrc-tab" onclick="switchFetch('db', this)">📊 Databricks</button>
+        </div>
+        <div id="fetch-snow">
+          <table class="detail-table">
+            <tr><td>Ticket</td><td>INC146426</td></tr>
+            <tr><td>Priority</td><td style="color:var(--crit)">P1 – Critical</td></tr>
+            <tr><td>State</td><td>In Progress</td></tr>
+            <tr><td>Opened</td><td>Apr 30, 09:14 UTC</td></tr>
+            <tr><td>SRE Contact</td><td>@sre-cgx-lead</td></tr>
+            <tr><td>Biz Contact</td><td>J. Matthews</td></tr>
+            <tr><td>Affected CI</td><td>CGX-SVC-0042</td></tr>
+            <tr><td>Root Cause</td><td>DB pipeline miscfg</td></tr>
+          </table>
+        </div>
+        <div id="fetch-db" style="display:none">
+          <table class="detail-table">
+            <tr><td>Error Rate</td><td style="color:var(--crit)">87%<div class="mini-bar-wrap"><div class="mini-bar" style="width:87%;background:var(--crit)"></div></div></td></tr>
+            <tr><td>Availability</td><td style="color:var(--warn)">13%<div class="mini-bar-wrap"><div class="mini-bar" style="width:13%;background:var(--warn)"></div></div></td></tr>
+            <tr><td>Affected Users</td><td>12,400<div class="mini-bar-wrap"><div class="mini-bar" style="width:72%;background:#3b82f6"></div></div></td></tr>
+            <tr><td>Pipeline Jobs</td><td style="color:var(--crit)">14/14 FAILED</td></tr>
+            <tr><td>Cluster</td><td>cgx-etl-prod</td></tr>
+            <tr><td>Last Run</td><td>09:11 UTC – FAIL</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3: SET CONTEXT -->
+    <div class="step-panel" id="step3">
+      <div class="step-heading">Provide Context &amp; Set Preferences</div>
+      <div class="step-desc">Help AI tailor the communication. All fields optional.</div>
+
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label">Audience Role</label>
+          <select class="field-select">
+            <option>Executives</option>
+            <option>IT Operations</option>
+            <option>Business Stakeholders</option>
+            <option>SRE / On-Call</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Output Level</label>
+          <select class="field-select">
+            <option>Summary Only (Recommended)</option>
+            <option>Detailed Technical</option>
+            <option>Executive One-pager</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <label class="field-label">Additional Context (Optional)</label>
+        <textarea class="field-textarea" placeholder="e.g. This is a recurring issue from last week. Customer SLA at risk. CEO aware."></textarea>
+      </div>
+
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Require Human Review Before Send</div>
+          <div class="toggle-sub">Comm will be held in draft until manually approved</div>
+        </div>
+        <div class="toggle on" id="toggleReview" onclick="this.classList.toggle('on')"></div>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Include Databricks Metrics</div>
+          <div class="toggle-sub">Attach error rate, affected users, pipeline status</div>
+        </div>
+        <div class="toggle on" id="toggleMetrics" onclick="this.classList.toggle('on')"></div>
+      </div>
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">Auto-send End of Day Summary</div>
+          <div class="toggle-sub">Scheduled Outlook report at 17:00 UTC</div>
+        </div>
+        <div class="toggle" id="toggleEOD" onclick="this.classList.toggle('on')"></div>
+      </div>
+    </div>
+
+    <!-- STEP 4: AI INSIGHTS (generating) -->
+    <div class="step-panel" id="step4">
+      <div class="step-heading">AI-Generated Insights</div>
+      <div class="step-desc">Analyzing incident data from ServiceNow and Databricks to generate tailored communication.</div>
+      <div class="ai-panel" id="aiPanel">
+        <div class="ai-spinner-ring" id="aiSpinner"></div>
+        <div class="ai-status" id="aiStatus">Generating AI Insights…</div>
+        <div class="ai-sub" id="aiSub">Analyzing logs, alerts, and pipeline data</div>
+        <div class="ai-steps">
+          <div class="ai-step done" id="ais1"><div class="ai-dot"></div>Fetched INC146426 from ServiceNow</div>
+          <div class="ai-step done" id="ais2"><div class="ai-dot"></div>Pulled Databricks pipeline metrics</div>
+          <div class="ai-step active" id="ais3"><div class="ai-dot"></div>Correlating root cause signals…</div>
+          <div class="ai-step" id="ais4"><div class="ai-dot"></div>Drafting executive summary</div>
+          <div class="ai-step" id="ais5"><div class="ai-dot"></div>Preparing channel-specific outputs</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 5: SEND COMM -->
+    <div class="step-panel" id="step5">
+      <div class="step-heading">Review &amp; Send Communication</div>
+      <div class="step-desc">Select channels and review the AI-drafted message before sending.</div>
+
+      <div class="channel-grid">
+        <div class="ch-card selected" onclick="this.classList.toggle('selected')">
+          <div class="ch-card-icon">💬</div>
+          <div class="ch-card-name">Teams – Executives</div>
+          <div class="ch-card-desc">#exec-incidents channel</div>
+        </div>
+        <div class="ch-card selected" onclick="this.classList.toggle('selected')">
+          <div class="ch-card-icon">🔧</div>
+          <div class="ch-card-name">Teams – IT</div>
+          <div class="ch-card-desc">#it-ops-alerts channel</div>
+        </div>
+        <div class="ch-card" onclick="this.classList.toggle('selected')">
+          <div class="ch-card-icon">📊</div>
+          <div class="ch-card-name">Teams – Business</div>
+          <div class="ch-card-desc">#business-incidents</div>
+        </div>
+        <div class="ch-card" onclick="this.classList.toggle('selected')">
+          <div class="ch-card-icon">📧</div>
+          <div class="ch-card-name">Outlook – EOD Report</div>
+          <div class="ch-card-desc">Stakeholder email digest</div>
+        </div>
+      </div>
+
+      <div class="preview-box">🔴 [P1 INCIDENT UPDATE] CGX Platform – Executive Notice
+
+Incident IDs: INC146426 (Services Down), INC213423 (Apps Down)
+Status: CRITICAL – Services Unavailable | Est. Recovery: 14:30 UTC
+
+Impact: ~12,400 users affected · Portal, API, and Batch down
+Root Cause: Databricks ETL pipeline failure → stale config to routing layer
+Dependent Services: SDR (DOWN) · EPSS (DEGRADED) · Demographics (OK)
+
+Rollback initiated at 10:30 UTC. Next update in 60 min.
+Bridge: WAR-ROOM-4 · Commander: @sre-cgx-lead</div>
+
+      <div id="sentConfirm" style="display:none;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:8px;padding:14px;text-align:center;font-size:14px;font-weight:600;color:var(--ok);">
+        ✅ Communication sent successfully to selected channels!
+      </div>
+    </div>
+
+  </div>
+
+  <!-- FOOTER -->
+  <div class="wizard-footer">
+    <button class="btn btn-secondary" id="btnBack" onclick="prevStep()" style="visibility:hidden">← Back</button>
+    <div class="step-counter" id="stepCounter">Step 1 of 5</div>
+    <button class="btn btn-primary" id="btnNext" onclick="nextStep()">Next →</button>
+  </div>
+
+</div>
+
+<script>
+let currentStep = 1;
+const totalSteps = 5;
+let aiDone = false;
+
+function updateStepUI() {
+  // Panels
+  document.querySelectorAll('.step-panel').forEach((p,i) => {
+    p.classList.toggle('active', i+1 === currentStep);
+  });
+  // Step bar
+  for(let i=1; i<=totalSteps; i++){
+    const si = document.getElementById('si'+i);
+    si.classList.remove('active','done');
+    if(i < currentStep) si.classList.add('done');
+    else if(i === currentStep) si.classList.add('active');
+  }
+  // Counter
+  document.getElementById('stepCounter').textContent = `Step ${currentStep} of ${totalSteps}`;
+  // Buttons
+  document.getElementById('btnBack').style.visibility = currentStep > 1 ? 'visible' : 'hidden';
+  const next = document.getElementById('btnNext');
+  if(currentStep === 4) {
+    next.textContent = aiDone ? 'Continue →' : 'Processing…';
+    next.disabled = !aiDone;
+  } else if(currentStep === 5) {
+    next.textContent = '✉ Send Now';
+    next.className = 'btn btn-success';
+    next.disabled = false;
+  } else {
+    next.textContent = 'Next →';
+    next.className = 'btn btn-primary';
+    next.disabled = false;
+  }
+}
+
+function nextStep() {
+  if(currentStep === 5) { sendComm(); return; }
+  if(currentStep < totalSteps) {
+    currentStep++;
+    updateStepUI();
+    if(currentStep === 4) startAI();
+  }
+}
+
+function prevStep() {
+  if(currentStep > 1) { currentStep--; updateStepUI(); }
+}
+
+function startAI() {
+  aiDone = false;
+  updateStepUI();
+  const steps = ['ais1','ais2','ais3','ais4','ais5'];
+  const labels = [
+    'Fetched INC146426 from ServiceNow',
+    'Pulled Databricks pipeline metrics',
+    'Correlating root cause signals',
+    'Drafting executive summary',
+    'Preparing channel-specific outputs'
+  ];
+  steps.forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.remove('done','active');
+  });
+  document.getElementById('ais1').classList.add('done');
+  document.getElementById('ais2').classList.add('done');
+  document.getElementById('ais3').classList.add('active');
+
+  let idx = 2;
+  const tick = setInterval(() => {
+    document.getElementById(steps[idx]).classList.remove('active');
+    document.getElementById(steps[idx]).classList.add('done');
+    idx++;
+    if(idx >= steps.length) {
+      clearInterval(tick);
+      document.getElementById('aiSpinner').style.display = 'none';
+      document.getElementById('aiStatus').textContent = '✅ AI Insights Ready';
+      document.getElementById('aiSub').textContent = 'Communication drafted and ready for review';
+      aiDone = true;
+      document.getElementById('btnNext').textContent = 'Continue →';
+      document.getElementById('btnNext').disabled = false;
+    } else {
+      document.getElementById(steps[idx]).classList.add('active');
+    }
+  }, 900);
+}
+
+function sendComm() {
+  document.getElementById('sentConfirm').style.display = 'block';
+  document.getElementById('btnNext').textContent = '✓ Sent';
+  document.getElementById('btnNext').disabled = true;
+  // Mark all steps done
+  for(let i=1;i<=5;i++) {
+    const si = document.getElementById('si'+i);
+    si.classList.remove('active'); si.classList.add('done');
+  }
+}
+
+function selectGoal(el) {
+  document.querySelectorAll('.radio-opt').forEach(r => r.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function selectPill(el, id) {
+  document.querySelectorAll('.inc-pill').forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected');
+  // swap detail data
+  const isP1 = id === 'INC146426';
+  document.querySelector('#fetch-snow').innerHTML = isP1 ? `
+    <table class="detail-table">
+      <tr><td>Ticket</td><td>INC146426</td></tr>
+      <tr><td>Priority</td><td style="color:var(--crit)">P1 – Critical</td></tr>
+      <tr><td>State</td><td>In Progress</td></tr>
+      <tr><td>Opened</td><td>Apr 30, 09:14 UTC</td></tr>
+      <tr><td>SRE Contact</td><td>@sre-cgx-lead</td></tr>
+      <tr><td>Biz Contact</td><td>J. Matthews</td></tr>
+      <tr><td>Affected CI</td><td>CGX-SVC-0042</td></tr>
+      <tr><td>Root Cause</td><td>DB pipeline miscfg</td></tr>
+    </table>` : `
+    <table class="detail-table">
+      <tr><td>Ticket</td><td>INC213423</td></tr>
+      <tr><td>Priority</td><td style="color:var(--warn)">P2 – High</td></tr>
+      <tr><td>State</td><td>Monitoring</td></tr>
+      <tr><td>Opened</td><td>Apr 30, 09:22 UTC</td></tr>
+      <tr><td>SRE Contact</td><td>@app-ops-team</td></tr>
+      <tr><td>Biz Contact</td><td>J. Matthews</td></tr>
+      <tr><td>Affected CI</td><td>CGX-APP-Portal</td></tr>
+      <tr><td>Root Cause</td><td>Upstream SDR down</td></tr>
+    </table>`;
+}
+
+function switchFetch(src, btn) {
+  document.querySelectorAll('.fsrc-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('fetch-snow').style.display = src==='snow' ? 'block' : 'none';
+  document.getElementById('fetch-db').style.display = src==='db' ? 'block' : 'none';
+}
+
+updateStepUI();
+</script>
+</body>
+</html>
